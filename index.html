@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>DropShare — Public File Sharing</title>
+<link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=JetBrains+Mono:wght@400;700&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet"/>
+<style>
+:root {
+  --bg:       #0f0f12;
+  --surface:  #17171d;
+  --surface2: #1e1e27;
+  --border:   #2c2c38;
+  --accent:   #f97316;
+  --accent-lo:#f9731618;
+  --text:     #f0f0f3;
+  --sub:      #9090a0;
+  --danger:   #ef4444;
+  --green:    #22c55e;
+  --radius:   10px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{
+  background:var(--bg);color:var(--text);
+  font-family:'DM Sans',sans-serif;min-height:100vh;
+  padding:0 0 80px;
+  background-image:radial-gradient(ellipse 80% 40% at 50% -10%,#f9731608,transparent);
+}
+
+/* SETUP BANNER */
+#setup-banner{
+  background:#1a0800;border-bottom:1px solid #f9731630;
+  padding:12px 24px;display:none;align-items:center;gap:12px;
+  font-family:'JetBrains Mono',monospace;font-size:.78rem;
+}
+#setup-banner .b-text{color:#fbbf24;flex:1}
+#setup-banner a{color:var(--accent)}
+
+/* HEADER */
+header{
+  max-width:960px;margin:0 auto;padding:40px 24px 0;
+  display:flex;align-items:flex-end;justify-content:space-between;
+  gap:16px;flex-wrap:wrap;
+}
+.logo{font-family:'Archivo Black',sans-serif;font-size:clamp(2rem,5vw,3rem);letter-spacing:-1px;line-height:1}
+.logo em{color:var(--accent);font-style:normal}
+.logo-sub{font-family:'JetBrains Mono',monospace;font-size:.7rem;color:var(--sub);letter-spacing:3px;text-transform:uppercase;margin-top:6px}
+#count-badge{
+  font-family:'JetBrains Mono',monospace;font-size:.75rem;
+  color:var(--accent);background:var(--accent-lo);
+  border:1px solid #f9731640;border-radius:20px;padding:6px 14px;white-space:nowrap;
+}
+
+/* MAIN GRID */
+main{
+  max-width:960px;margin:32px auto 0;padding:0 24px;
+  display:grid;grid-template-columns:1fr 1fr;gap:20px;
+}
+@media(max-width:680px){main{grid-template-columns:1fr}}
+
+/* UPLOAD CARD */
+.upload-card{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--radius);overflow:hidden;
+  position:sticky;top:20px;align-self:start;
+  animation:fadeUp .5s ease both;
+}
+.card-head{
+  padding:16px 20px 12px;border-bottom:1px solid var(--border);
+  font-size:.68rem;font-family:'JetBrains Mono',monospace;
+  color:var(--sub);letter-spacing:2px;text-transform:uppercase;
+  display:flex;align-items:center;gap:8px;
+}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--accent);box-shadow:0 0 6px var(--accent);animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+
+/* DROP ZONE */
+#drop-zone{
+  padding:36px 22px;text-align:center;cursor:pointer;
+  position:relative;transition:background .2s;
+  border-bottom:1px solid var(--border);
+}
+#drop-zone input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+#drop-zone:hover,#drop-zone.over{background:var(--accent-lo)}
+#drop-zone:hover .dz-icon,#drop-zone.over .dz-icon{transform:translateY(-4px) scale(1.1)}
+.dz-icon{font-size:2.8rem;display:block;margin-bottom:12px;transition:transform .25s ease}
+.dz-title{font-family:'Archivo Black',sans-serif;font-size:1rem;margin-bottom:6px}
+.dz-sub{font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--sub);letter-spacing:1px}
+
+/* FILE PREVIEW */
+#file-preview{
+  display:none;align-items:center;gap:12px;
+  padding:14px 18px;border-bottom:1px solid var(--border);
+  background:var(--surface2);
+}
+.fp-icon{font-size:1.5rem;flex-shrink:0}
+.fp-meta{flex:1;min-width:0}
+.fp-name{font-weight:600;font-size:.87rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fp-size{font-family:'JetBrains Mono',monospace;font-size:.67rem;color:var(--sub);margin-top:2px}
+#fp-clear{background:none;border:none;color:var(--sub);cursor:pointer;font-size:1.1rem;padding:4px;transition:color .2s;flex-shrink:0}
+#fp-clear:hover{color:var(--danger)}
+
+/* PROGRESS */
+#prog-wrap{display:none;padding:14px 18px;border-bottom:1px solid var(--border)}
+.prog-row{display:flex;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--sub);margin-bottom:8px}
+.prog-track{height:3px;background:var(--border);border-radius:3px;overflow:hidden}
+.prog-fill{height:100%;width:0%;background:var(--accent);transition:width .25s ease;border-radius:3px}
+
+/* UPLOAD BUTTON */
+#upload-btn{
+  display:block;width:calc(100% - 36px);margin:16px 18px;padding:14px;
+  background:var(--accent);color:#fff;border:none;border-radius:8px;
+  font-family:'Archivo Black',sans-serif;font-size:.95rem;cursor:pointer;
+  transition:opacity .2s,transform .15s;
+}
+#upload-btn:hover:not(:disabled){opacity:.85;transform:translateY(-1px)}
+#upload-btn:disabled{opacity:.35;cursor:not-allowed;transform:none}
+
+/* RESULT */
+#upload-result{
+  display:none;margin:0 18px 16px;padding:12px 14px;
+  background:var(--accent-lo);border:1px solid #f9731440;border-radius:8px;
+}
+.res-label{font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--green);letter-spacing:2px;text-transform:uppercase;margin-bottom:7px}
+.res-link-row{display:flex;gap:8px;align-items:center}
+#res-link{
+  flex:1;background:var(--surface);border:1px solid var(--border);
+  border-radius:6px;padding:8px 10px;color:var(--text);
+  font-family:'JetBrains Mono',monospace;font-size:.7rem;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+#copy-btn{
+  padding:8px 14px;background:none;border:1px solid var(--accent);
+  color:var(--accent);border-radius:6px;
+  font-family:'DM Sans',sans-serif;font-weight:600;font-size:.78rem;
+  cursor:pointer;transition:background .2s,color .2s;white-space:nowrap;
+}
+#copy-btn:hover{background:var(--accent);color:#fff}
+
+/* ERROR */
+#upload-error{
+  display:none;margin:0 18px 16px;padding:10px 14px;
+  background:#1a0000;border:1px solid #ef444440;border-radius:8px;
+  font-family:'JetBrains Mono',monospace;font-size:.72rem;color:var(--danger);
+}
+
+/* FILES SECTION */
+.files-section{animation:fadeUp .5s ease .1s both}
+.files-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.files-head h2{font-family:'Archivo Black',sans-serif;font-size:1.05rem;display:flex;align-items:center;gap:8px}
+.live-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 5px var(--green);animation:pulse 1.5s infinite}
+#refresh-btn{
+  background:none;border:1px solid var(--border);color:var(--sub);
+  border-radius:6px;padding:5px 10px;
+  font-family:'JetBrains Mono',monospace;font-size:.65rem;
+  cursor:pointer;transition:border-color .2s,color .2s;
+}
+#refresh-btn:hover{border-color:var(--accent);color:var(--accent)}
+
+#files-list{display:flex;flex-direction:column;gap:10px}
+
+/* FILE CARD */
+.fc{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--radius);padding:14px 16px;
+  display:flex;align-items:center;gap:12px;
+  transition:border-color .2s,background .2s;
+  animation:fadeIn .3s ease both;
+}
+.fc:hover{border-color:#f9731440;background:var(--surface2)}
+.fc-icon{font-size:1.7rem;flex-shrink:0}
+.fc-meta{flex:1;min-width:0}
+.fc-name{font-weight:600;font-size:.88rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fc-info{font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--sub);margin-top:3px}
+.fc-dl{
+  padding:7px 14px;background:none;border:1px solid var(--border);
+  color:var(--text);border-radius:6px;
+  font-family:'DM Sans',sans-serif;font-size:.78rem;font-weight:600;
+  cursor:pointer;text-decoration:none;
+  transition:border-color .2s,color .2s,background .2s;
+  flex-shrink:0;white-space:nowrap;
+}
+.fc-dl:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-lo)}
+
+/* EMPTY / LOADING */
+.state-msg{
+  text-align:center;padding:40px 20px;
+  font-family:'JetBrains Mono',monospace;font-size:.75rem;color:var(--sub);
+  border:1px dashed var(--border);border-radius:var(--radius);
+}
+.state-msg .s-icon{font-size:2rem;display:block;margin-bottom:10px}
+
+footer{
+  max-width:960px;margin:50px auto 0;padding:0 24px;
+  font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--sub);
+  display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;
+}
+
+@keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+</style>
+</head>
+<body>
+
+<div id="setup-banner">
+  <span>⚠️</span>
+  <span class="b-text">Firebase not configured — open index.html and paste your firebaseConfig inside the script tag.</span>
+</div>
+
+<header>
+  <div>
+    <div class="logo">Drop<em>Share</em></div>
+    <div class="logo-sub">// upload · share · download free</div>
+  </div>
+  <div id="count-badge">0 files shared</div>
+</header>
+
+<main>
+  <!-- UPLOAD CARD -->
+  <div class="upload-card">
+    <div class="card-head"><span class="dot"></span>Upload a file</div>
+
+    <div id="drop-zone">
+      <input type="file" id="file-input" accept="*/*" />
+      <span class="dz-icon">📂</span>
+      <div class="dz-title">Drop any file here</div>
+      <div class="dz-sub">or click to browse &nbsp;·&nbsp; all types accepted</div>
+    </div>
+
+    <div id="file-preview">
+      <span class="fp-icon" id="fp-icon">📄</span>
+      <div class="fp-meta">
+        <div class="fp-name" id="fp-name">—</div>
+        <div class="fp-size" id="fp-size">—</div>
+      </div>
+      <button id="fp-clear">✕</button>
+    </div>
+
+    <div id="prog-wrap">
+      <div class="prog-row">
+        <span id="prog-label">Uploading…</span>
+        <span id="prog-pct">0%</span>
+      </div>
+      <div class="prog-track"><div class="prog-fill" id="prog-fill"></div></div>
+    </div>
+
+    <button id="upload-btn" disabled>Upload &amp; Share</button>
+
+    <div id="upload-result">
+      <div class="res-label">✔ File shared with everyone</div>
+      <div class="res-link-row">
+        <input id="res-link" type="text" readonly />
+        <button id="copy-btn">Copy link</button>
+      </div>
+    </div>
+    <div id="upload-error"></div>
+  </div>
+
+  <!-- FILES LIST -->
+  <div class="files-section">
+    <div class="files-head">
+      <h2><span class="live-dot"></span>&nbsp;All Shared Files</h2>
+      <button id="refresh-btn">↻ Refresh</button>
+    </div>
+    <div id="files-list">
+      <div class="state-msg"><span class="s-icon">⏳</span>Loading files…</div>
+    </div>
+  </div>
+</main>
+
+<footer>
+  <span>Storage by Firebase · Free hosting on GitHub Pages</span>
+  <span id="last-updated"></span>
+</footer>
+
+
+<!-- ═══════════════════════════════════════════════════════════════════
+     FIREBASE SETUP — follow these steps:
+
+     1. Go to https://console.firebase.google.com
+     2. Click "Add project" → name it → disable Analytics → Create project
+     3. In your project: Build → Realtime Database → Create Database
+        → Choose "Start in test mode" → Enable
+     4. In your project: Build → Storage → Get started
+        → Choose "Start in test mode" → Next → Done
+     5. Click the gear icon → Project Settings → scroll to "Your apps"
+        → click </> (Web) → register app → copy the firebaseConfig object
+     6. Paste the config below replacing the placeholder values
+     7. Save index.html and re-upload to GitHub
+
+     That's it! Firebase free tier: 5GB storage, 10GB/mo downloads.
+═══════════════════════════════════════════════════════════════════ -->
+
+<script type="module">
+
+// ══════════════════════════════════════════════════════
+//  PASTE YOUR FIREBASE CONFIG OBJECT HERE ↓
+// ══════════════════════════════════════════════════════
+const firebaseConfig = {
+  apiKey:            "YOUR_API_KEY",
+  authDomain:        "YOUR_PROJECT_ID.firebaseapp.com",
+  databaseURL:       "https://YOUR_PROJECT_ID-default-rtdb.firebaseio.com",
+  projectId:         "YOUR_PROJECT_ID",
+  storageBucket:     "YOUR_PROJECT_ID.appspot.com",
+  messagingSenderId: "YOUR_SENDER_ID",
+  appId:             "YOUR_APP_ID"
+};
+// ══════════════════════════════════════════════════════
+
+import { initializeApp }
+  from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
+import { getDatabase, ref, push, onValue, query, orderByChild, limitToLast }
+  from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js';
+import { getStorage, ref as sRef, uploadBytesResumable, getDownloadURL }
+  from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js';
+
+// ─── Check config ────────────────────────────────────
+const configured = firebaseConfig.apiKey !== "YOUR_API_KEY";
+if(!configured){
+  document.getElementById('setup-banner').style.display='flex';
+  document.getElementById('files-list').innerHTML=
+    `<div class="state-msg"><span class="s-icon">⚙️</span>Configure Firebase first — see the comment in index.html</div>`;
+}
+
+// ─── Init ────────────────────────────────────────────
+const app     = configured ? initializeApp(firebaseConfig) : null;
+const db      = configured ? getDatabase(app)  : null;
+const storage = configured ? getStorage(app)   : null;
+
+// ─── Helpers ─────────────────────────────────────────
+const fmtBytes = b =>
+  b<1024?b+' B':b<1048576?(b/1024).toFixed(1)+' KB':
+  b<1073741824?(b/1048576).toFixed(1)+' MB':(b/1073741824).toFixed(2)+' GB';
+
+const timeAgo = ts => {
+  const s=Math.floor((Date.now()-ts)/1000);
+  if(s<60)return'just now';if(s<3600)return Math.floor(s/60)+'m ago';
+  if(s<86400)return Math.floor(s/3600)+'h ago';return Math.floor(s/86400)+'d ago';
+};
+
+const fileIcon = (mime='',name='') => {
+  if(mime.startsWith('image/'))return'🖼️';
+  if(mime.startsWith('video/'))return'🎬';
+  if(mime.startsWith('audio/'))return'🎵';
+  if(mime.includes('pdf'))return'📕';
+  if(mime.includes('zip')||mime.includes('rar')||mime.includes('tar')||mime.includes('7z'))return'📦';
+  if(mime.includes('word')||name.endsWith('.docx'))return'📝';
+  if(mime.includes('sheet')||name.endsWith('.xlsx'))return'📊';
+  if(mime.includes('presentation')||name.endsWith('.pptx'))return'📊';
+  const codeExts=['.js','.ts','.py','.html','.css','.json','.sh','.c','.cpp','.java'];
+  if(codeExts.some(e=>name.endsWith(e)))return'💻';
+  if(mime.startsWith('text/'))return'📄';
+  return'📁';
+};
+
+const san = s => s.replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+// ─── DOM ─────────────────────────────────────────────
+const $=id=>document.getElementById(id);
+const dropZone=$('drop-zone'),fileInput=$('file-input');
+const preview=$('file-preview'),fpIcon=$('fp-icon'),fpName=$('fp-name'),fpSize=$('fp-size'),fpClear=$('fp-clear');
+const progWrap=$('prog-wrap'),progFill=$('prog-fill'),progPct=$('prog-pct'),progLabel=$('prog-label');
+const uploadBtn=$('upload-btn'),resultBox=$('upload-result'),resLink=$('res-link'),copyBtn=$('copy-btn');
+const errorBox=$('upload-error'),filesList=$('files-list'),countBadge=$('count-badge');
+const lastUpdated=$('last-updated'),refreshBtn=$('refresh-btn');
+
+let selectedFile=null;
+
+// ─── File select ─────────────────────────────────────
+function setFile(f){
+  selectedFile=f;
+  fpIcon.textContent=fileIcon(f.type,f.name);
+  fpName.textContent=f.name;
+  fpSize.textContent=fmtBytes(f.size);
+  preview.style.display='flex';
+  uploadBtn.disabled=false;
+  resultBox.style.display='none';
+  errorBox.style.display='none';
+}
+function clearFile(){
+  selectedFile=null;fileInput.value='';
+  preview.style.display='none';
+  uploadBtn.disabled=true;
+  progWrap.style.display='none';
+}
+
+dropZone.addEventListener('dragover',e=>{e.preventDefault();dropZone.classList.add('over')});
+dropZone.addEventListener('dragleave',()=>dropZone.classList.remove('over'));
+dropZone.addEventListener('drop',e=>{
+  e.preventDefault();dropZone.classList.remove('over');
+  if(e.dataTransfer.files[0])setFile(e.dataTransfer.files[0]);
+});
+fileInput.addEventListener('change',()=>{if(fileInput.files[0])setFile(fileInput.files[0])});
+fpClear.addEventListener('click',clearFile);
+
+// ─── Upload ──────────────────────────────────────────
+uploadBtn.addEventListener('click', async()=>{
+  if(!selectedFile)return;
+  if(!configured){
+    errorBox.textContent='⚠ Firebase not configured. Edit index.html first.';
+    errorBox.style.display='block';return;
+  }
+  uploadBtn.disabled=true;
+  resultBox.style.display='none';
+  errorBox.style.display='none';
+  progWrap.style.display='block';
+  progFill.style.width='0%';progPct.textContent='0%';
+  progLabel.textContent='Uploading…';
+
+  try{
+    const ts=Date.now();
+    const path=`uploads/${ts}_${selectedFile.name}`;
+    const fileRef=sRef(storage,path);
+    const task=uploadBytesResumable(fileRef,selectedFile,{
+      contentType:selectedFile.type||'application/octet-stream'
+    });
+
+    const url=await new Promise((res,rej)=>{
+      task.on('state_changed',
+        snap=>{
+          const p=Math.round((snap.bytesTransferred/snap.totalBytes)*100);
+          progFill.style.width=p+'%';progPct.textContent=p+'%';
+        },
+        rej,
+        async()=>res(await getDownloadURL(task.snapshot.ref))
+      );
+    });
+
+    // Save to shared database
+    await push(ref(db,'files'),{
+      name:selectedFile.name,
+      size:selectedFile.size,
+      type:selectedFile.type||'application/octet-stream',
+      url, uploadedAt:ts
+    });
+
+    progWrap.style.display='none';
+    resultBox.style.display='block';
+    resLink.value=url;
+    clearFile();
+  }catch(err){
+    progWrap.style.display='none';
+    errorBox.textContent='❌ '+(err.message||'Upload failed — check Firebase Storage rules.');
+    errorBox.style.display='block';
+  }
+  uploadBtn.disabled=!selectedFile;
+});
+
+// ─── Copy ────────────────────────────────────────────
+copyBtn.addEventListener('click',()=>{
+  navigator.clipboard.writeText(resLink.value).catch(()=>{resLink.select();document.execCommand('copy')});
+  copyBtn.textContent='Copied!';
+  setTimeout(()=>copyBtn.textContent='Copy link',2000);
+});
+
+// ─── Render files ────────────────────────────────────
+function renderFiles(arr){
+  if(!arr||!arr.length){
+    filesList.innerHTML=`<div class="state-msg"><span class="s-icon">📭</span>No files yet — be the first to upload!</div>`;
+    countBadge.textContent='0 files shared';return;
+  }
+  countBadge.textContent=arr.length+' file'+(arr.length!==1?'s':'')+' shared';
+  lastUpdated.textContent='Updated '+new Date().toLocaleTimeString();
+  filesList.innerHTML=arr.map((f,i)=>`
+    <div class="fc" style="animation-delay:${i*35}ms">
+      <span class="fc-icon">${fileIcon(f.type,f.name)}</span>
+      <div class="fc-meta">
+        <div class="fc-name" title="${san(f.name)}">${san(f.name)}</div>
+        <div class="fc-info">${fmtBytes(f.size)} &nbsp;·&nbsp; ${timeAgo(f.uploadedAt)}</div>
+      </div>
+      <a class="fc-dl" href="${f.url}" target="_blank" rel="noopener">↓ Download</a>
+    </div>`).join('');
+}
+
+// ─── Real-time listener ──────────────────────────────
+if(configured){
+  const q=query(ref(db,'files'),orderByChild('uploadedAt'),limitToLast(100));
+  onValue(q,snap=>{
+    const raw=snap.val();
+    if(!raw){renderFiles([]);return;}
+    renderFiles(Object.values(raw).sort((a,b)=>b.uploadedAt-a.uploadedAt));
+  });
+  refreshBtn.addEventListener('click',()=>{
+    filesList.innerHTML=`<div class="state-msg"><span class="s-icon">⏳</span>Refreshing…</div>`;
+  });
+}
+</script>
+</body>
+</html>
